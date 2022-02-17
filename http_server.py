@@ -71,7 +71,13 @@ class HTTPServer:
 
                     # TODO
                     if headers["path"] == b"/getMaps":
-                        response_data = {"map": "data"}
+                        gps_trace = json.loads(event.data.decode("utf-8"))
+                        print("[server]: gps trace recieved")
+                        response_data = {"trace": gps_trace}
+
+                        # if location was not found, return HTTP 400
+                        if "error" in response_data.keys():
+                            self.send_error_response(conn, event, response_data)
 
                     # send a response indicating a succesfull request, along with the data
                     self.send_successfull_response(conn, event, response_data)
@@ -81,6 +87,8 @@ class HTTPServer:
                 sock.sendall(data_to_send)
 
     def send_successfull_response(self, conn, event, response_data):
+        """Send a successfull (HTTP 200) response"""
+
         stream_id = event.stream_id
         data = json.dumps(response_data).encode("utf-8")
         conn.send_headers(
@@ -119,6 +127,7 @@ class HTTPServer:
             if pos >= 88 and pos <= 208:
                 return metadata.helsinki_json
 
+        print("[server]: invalid gps location")
         return {"error": "location not found"}
 
 

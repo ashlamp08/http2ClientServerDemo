@@ -20,6 +20,28 @@ headers = [
 ]
 request_body = {"lat": 60.17000859999999, "lon": 24.9389777}
 
+
+# GET, print response
+response = client.send_request(headers, json.dumps(request_body).encode("utf-8"))
+print(response)
+
+input()
+
+"""
+2)
+Additionally, the server can handle the cases
+where the map files are not available or the
+GPS location is invalid. 
+"""
+# headers and body for the request
+headers = [
+    (":method", "GET"),
+    (":path", "/getMap"),
+    (":authority", "localhost"),
+    (":scheme", "https"),
+]
+request_body = {"lat": 1, "lon": 1}
+
 # GET, print response
 response = client.send_request(headers, json.dumps(request_body).encode("utf-8"))
 print(response)
