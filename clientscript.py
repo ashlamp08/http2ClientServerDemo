@@ -3,13 +3,6 @@ import json
 
 client = HTTPClient("localhost", 8000)
 
-headers = [
-    (":method", "GET"),
-    (":path", "/getMap"),
-    (":authority", "localhost"),
-    (":scheme", "https"),
-]
-
 
 """
 2)
@@ -17,9 +10,18 @@ Select a GPS location from the GPS trace we provide, and send a request for a re
 map from the HTTP client to the server. The GPS location is indicated in the request. The
 server should send the corresponding road map back to the client
 """
-requestBody = {"lat": 60.17000859999999, "lon": 24.9389777}
 
-response = client.send_request(headers, json.dumps(requestBody).encode("utf-8"))
+# headers and body for the request
+headers = [
+    (":method", "GET"),
+    (":path", "/getMap"),
+    (":authority", "localhost"),
+    (":scheme", "https"),
+]
+request_body = {"lat": 60.17000859999999, "lon": 24.9389777}
+
+# GET, print response
+response = client.send_request(headers, json.dumps(request_body).encode("utf-8"))
 print(response)
 
 input()
@@ -40,7 +42,17 @@ headers = [
     (":authority", "localhost"),
     (":scheme", "https"),
 ]
-response = client.send_request(headers, b"data 2")
+request_body = [
+    [60.1827219, 24.832274299999998],
+    [60.182534700000005, 24.8326882],
+    [60.182384400000004, 24.8329588],
+    [60.1821692, 24.833253900000003],
+    [60.18202589999999, 24.833446],
+    [60.1819362, 24.833533799999998],
+    [60.1819362, 24.833533799999998],
+]
+
+response = client.send_request(headers, json.dumps(request_body).encode("utf-8"))
 print(response)
 
 
