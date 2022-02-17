@@ -79,6 +79,9 @@ class HTTPServer:
                         print("[server]: gps trace recieved")
                         response_data = {"trace": gps_trace}
 
+                        # send first map
+                        # push the rest (close stream)
+
                     # send a response indicating a succesfull request, along with the data
                     self.send_successfull_response(conn, event, response_data)
 
