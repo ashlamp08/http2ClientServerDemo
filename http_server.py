@@ -35,6 +35,7 @@ class HTTPServer:
 
         headers = {}
         request_data = b""
+        trace_request_data = b""
 
         while True:
             data = sock.recv(65535)
@@ -46,11 +47,12 @@ class HTTPServer:
 
                 # Recieve and process headers
                 if isinstance(event, h2.events.RequestReceived):
-
+                    print("HEADERS")
+                    print(event.headers)
                     for _t in event.headers:
-                        if _t[0] == b":method":
+                        if _t[0] == ":method":
                             headers["method"] = _t[1]
-                        elif _t[0] == b":path":
+                        elif _t[0] == ":path":
                             headers["path"] = _t[1]
                     print(
                         f"[server]: headers received [{headers['method']}] [{headers['path']}]"
@@ -70,26 +72,43 @@ class HTTPServer:
                     # determine operations based on path in headers
 
                     # get regional map for single gps location
-                    if headers["path"] == b"/getMap":
+                    if headers["path"] == "/getMap":
                         gps_location = json.loads(event.data.decode("utf-8"))
                         print("[server]: gps location recieved")
-                        response_data = self.get_map(gps_location)
+                        response_data = self.get_map([gps_location["lat"], gps_location["lon"]])
                         # if location was not found, return HTTP 400
                         if "error" in response_data.keys():
                             self.send_error_response(conn, event, response_data)
                             continue
 
                     # get all maps for a trace
-                    if headers["path"] == b"/getMaps":
-                        gps_trace = json.loads(event.data.decode("utf-8"))
-                        print("[server]: gps trace recieved")
-                        response_data = {"trace": gps_trace}
+                    # if headers["path"] == b"/getMaps":
+                    #     gps_trace = json.loads(event.data.decode("utf-8"))
+                    #     print("[server]: gps trace recieved")
+                    #     response_data = {"trace": gps_trace}
+                    if headers["path"] == "/getMapFromTrace":
+                        trace_request_data += event.data
+                        # print(trace_request_data)
+                        try:
+                            # keep getting more data until full dict gotten
+                            data = json.loads(trace_request_data.decode("utf-8"))
+                            gps_trace = data
+                            response_data = self.get_map(gps_trace[0])
 
-                        # send first map
-                        # push the rest (close stream)
+                            for idx, gps in enumerate(gps_trace):
+                                if idx!= 0:
+                                    response = self.get_map(gps)
+                                    print("GPS")
+                                    print(gps)
+                                    self.send_push(conn, event, gps, json.dumps(response).encode('utf-8'))
+
+                            self.send_successfull_response(conn, event, response_data)
+                        except json.decoder.JSONDecodeError:
+                            pass
+
 
                     # save a photo along with GPS location
-                    if headers["path"] == b"/savePhoto":
+                    if headers["path"] == "/savePhoto":
                         request_data += event.data
                         try:
                             # keep getting more data until full dict gotten
@@ -99,9 +118,9 @@ class HTTPServer:
                             gps_location = data["gps_location"]
                             photo_bytes = data["photo"]
 
-                            if headers["method"] == b"POST":
+                            if headers["method"] == "POST":
                                 result = self.save_picture(gps_location, photo_bytes)
-                            elif headers["method"] == b"PUT":
+                            elif headers["method"] == "PUT":
                                 result = "overwritten"
                             else:
                                 result = "invalid method"
@@ -118,6 +137,46 @@ class HTTPServer:
             data_to_send = conn.data_to_send()
             if data_to_send:
                 sock.sendall(data_to_send)
+
+    def send_push(self, conn, event, gps_location, response):
+        push_id=conn.get_next_available_stream_id()
+        # request_body = event.body
+        push_headers = [
+            (":method", "GET"),
+            (":path", '/getMap?lat=' + str(gps_location[0]) + '&lon=' + str(gps_location[1])),
+            (":authority", "localhost"),
+            (":scheme", "https"),
+        ]
+        
+        # for entry in event.headers:
+        #     if ':path' in entry:
+        #         if '/getMapFromTrace' in entry:
+        #             push_headers.append((':path','/getMap?lat=' + str(gps_location[0]) + '&lon=' + str(gps_location[1])))
+        #         else:
+        #             return
+        #     else:
+        #         push_headers.append(entry)
+        
+        conn.push_stream(
+            stream_id=event.stream_id,
+            promised_stream_id=push_id,
+            request_headers=push_headers
+        )
+        response_headers = [
+                (":status", "200"),
+                ("server", "basic-h2-server/1.0"),
+                ("content-length", str(len(response))),
+                ("content-type", "application/json"),
+            ]
+        conn.send_headers(
+            stream_id=push_id,
+            headers=response_headers,
+        )
+        conn.send_data(
+            stream_id=push_id,
+            data=response,
+            end_stream=True
+        )
 
     def send_successfull_response(self, conn, event, response_data):
         """Send a successfull (HTTP 200) response"""
@@ -149,12 +208,9 @@ class HTTPServer:
         )
         conn.send_data(stream_id=stream_id, data=data, end_stream=True)
 
-    def get_map(self, gps_location: dict):
-        if [gps_location["lat"], gps_location["lon"]] in metadata.availableGPSpoints:
-            pos = metadata.availableGPSpoints.index(
-                [gps_location["lat"], gps_location["lon"]]
-            )
-
+    def get_map(self, gps_location):
+        if gps_location in metadata.availableGPSpoints:
+            pos = metadata.availableGPSpoints.index(gps_location)
             if pos >= 0 and pos <= 87:
                 return metadata.espoo_json
             if pos >= 88 and pos <= 208:
