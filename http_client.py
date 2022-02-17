@@ -3,6 +3,7 @@ import h2.connection
 import h2.config
 import h2.events
 import socket
+import sys
 
 
 class HTTPClient:
@@ -38,14 +39,24 @@ class HTTPClient:
 
         return response
 
-    def __send_request(self, headers_to_send, data_to_send, stream_id):
+    def __send_request(self, headers_to_send, data_to_send: bytes, stream_id):
         """Send a request to the server."""
 
+        # send headers first
         if headers_to_send:
             self.connection.send_headers(stream_id, headers_to_send)
+            self.socket.sendall(self.connection.data_to_send())
 
-        self.connection.send_data(stream_id, data_to_send)
-        self.socket.sendall(self.connection.data_to_send())
+        # send data 16384 bytes at a time (max frame size)
+        for i in range(0, sys.getsizeof(data_to_send), 16384):
+
+            # check that flow control window not closing
+            if self.connection.local_flow_control_window(stream_id) < 16384:
+                # wait for window update
+                self.wait_for_window_update()
+
+            self.connection.send_data(stream_id, data_to_send[i : i + 16384])
+            self.socket.sendall(self.connection.data_to_send())
 
         body = b""
         response_stream_ended = False
@@ -58,6 +69,62 @@ class HTTPClient:
             # feed raw data into h2, and process resulting events
             events = self.connection.receive_data(data)
             for event in events:
+                if isinstance(event, h2.events.DataReceived):
+                    # update flow control so the server doesn't starve us
+                    self.connection.acknowledge_received_data(
+                        event.flow_controlled_length, event.stream_id
+                    )
+                    # more response body data received
+                    body += event.data
+                if isinstance(event, h2.events.StreamEnded):
+                    # response body completed, let's exit the loop
+                    response_stream_ended = True
+                    break
+
+            # send any pending data to the server
+            self.socket.sendall(self.connection.data_to_send())
+
+        return body.decode()
+
+    def get_next_push(self):
+        pass
+
+    def wait_for_window_update(self):
+
+        body = b""
+        window_updated = False
+        while not window_updated:
+            # read raw data from the self.socket
+            data = self.socket.recv(65536 * 1024)
+            if not data:
+                break
+
+            # feed raw data into h2, and process resulting events
+            events = self.connection.receive_data(data)
+            for event in events:
+                if isinstance(event, h2.events.WindowUpdated):
+                    window_delta = event.delta
+                    window_updated = True
+
+            # send any pending data to the server
+            self.socket.sendall(self.connection.data_to_send())
+
+        return window_delta
+
+    def listen_for_response(self):
+
+        body = b""
+        response_stream_ended = False
+        while not response_stream_ended:
+            # read raw data from the self.socket
+            data = self.socket.recv(65536 * 1024)
+            if not data:
+                break
+
+            # feed raw data into h2, and process resulting events
+            events = self.connection.receive_data(data)
+            for event in events:
+                print(events)
                 if isinstance(event, h2.events.DataReceived):
                     # update flow control so the server doesn't starve us
                     self.connection.acknowledge_received_data(
