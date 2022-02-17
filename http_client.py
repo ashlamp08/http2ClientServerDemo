@@ -1,5 +1,4 @@
 import socket
-from anyio import EndOfStream
 import h2.connection
 import h2.config
 import h2.events
@@ -68,7 +67,6 @@ class HTTPClient:
                     body += event.data
                 if isinstance(event, h2.events.StreamEnded):
                     # response body completed, let's exit the loop
-                    print("stream closed")
                     response_stream_ended = True
                     break
 
