@@ -5,15 +5,16 @@ import h2.config
 import metadata
 
 
-
 def get_map(gps_location):
 
     if [gps_location["lat"], gps_location["lon"]] in metadata.availableGPSpoints:
-        pos = metadata.availableGPSpoints.index([gps_location["lat"], gps_location["lon"]])
+        pos = metadata.availableGPSpoints.index(
+            [gps_location["lat"], gps_location["lon"]]
+        )
 
-        if pos>=0 and pos <=87:
+        if pos >= 0 and pos <= 87:
             return metadata.espoo_json
-        if pos>=88 and pos <=208:
+        if pos >= 88 and pos <= 208:
             return metadata.helsinki_json
 
     return "NOT FOUND"
@@ -58,7 +59,7 @@ class HTTPServer:
 
                 # Recieve and process headers
                 if isinstance(event, h2.events.RequestReceived):
-                    
+
                     for _t in event.headers:
                         if _t[0] == b":method":
                             headers["method"] = _t[1]
@@ -77,7 +78,7 @@ class HTTPServer:
                     # get regional map for single gps location
                     if headers["path"] == b"/getMap":
                         # TODO get_map(gps_location)
-                        gps_location = json.loads(event.data.decode('utf-8'))
+                        gps_location = json.loads(event.data.decode("utf-8"))
                         print("GPS")
                         print(gps_location)
                         response_data = get_map(gps_location)
@@ -92,7 +93,7 @@ class HTTPServer:
 
     def send_dev_response(self, conn, event, response_data):
         stream_id = event.stream_id
-        data = json.dumps(response_data).encode('utf-8')
+        data = json.dumps(response_data).encode("utf-8")
         conn.send_headers(
             stream_id=stream_id,
             headers=[
@@ -103,6 +104,7 @@ class HTTPServer:
             ],
         )
         conn.send_data(stream_id=stream_id, data=data, end_stream=True)
+
 
 server = HTTPServer()
 server.start()
