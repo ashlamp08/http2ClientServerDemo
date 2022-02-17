@@ -1,5 +1,4 @@
 import socket
-from anyio import EndOfStream
 import h2.connection
 import h2.config
 import h2.events
