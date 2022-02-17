@@ -68,16 +68,16 @@ class HTTPServer:
                         gps_location = json.loads(event.data.decode("utf-8"))
                         print("[server]: gps location recieved")
                         response_data = self.get_map(gps_location)
+                        # if location was not found, return HTTP 400
+                        if "error" in response_data.keys():
+                            self.send_error_response(conn, event, response_data)
+                            continue
 
                     # TODO
                     if headers["path"] == b"/getMaps":
                         gps_trace = json.loads(event.data.decode("utf-8"))
                         print("[server]: gps trace recieved")
                         response_data = {"trace": gps_trace}
-
-                        # if location was not found, return HTTP 400
-                        if "error" in response_data.keys():
-                            self.send_error_response(conn, event, response_data)
 
                     # send a response indicating a succesfull request, along with the data
                     self.send_successfull_response(conn, event, response_data)
@@ -129,6 +129,11 @@ class HTTPServer:
 
         print("[server]: invalid gps location")
         return {"error": "location not found"}
+
+    def get_maps(self, gps_trace: list):
+
+        # TODO: check what maps are along the trace and push to client
+        pass
 
 
 server = HTTPServer()
