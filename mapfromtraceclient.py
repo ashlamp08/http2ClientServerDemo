@@ -31,7 +31,7 @@ for gps in metadata.trace:
     time.sleep(3)
     path = str.encode("/getMap?lat=" + str(gps[0]) + "&lon=" + str(gps[1]))
     # path = json.dumps(path).encode('utf-8')
-    if path in pushes.keys():
+    if path in pushes.keys:
         print(pushes[path].read())
 
 # for p in pushes:

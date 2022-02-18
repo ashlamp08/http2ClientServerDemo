@@ -47,8 +47,6 @@ class HTTPServer:
 
                 # Recieve and process headers
                 if isinstance(event, h2.events.RequestReceived):
-                    print("HEADERS")
-                    print(event.headers)
                     for _t in event.headers:
                         if _t[0] == ":method":
                             headers["method"] = _t[1]
@@ -80,13 +78,14 @@ class HTTPServer:
                         if "error" in response_data.keys():
                             self.send_error_response(conn, event, response_data)
                             continue
+                        else:
+                            self.send_successfull_response(conn, event, response_data)
+                            conn.end_stream(event.stream_id)
 
                     # get all maps for a trace
-                    # if headers["path"] == b"/getMaps":
-                    #     gps_trace = json.loads(event.data.decode("utf-8"))
-                    #     print("[server]: gps trace recieved")
-                    #     response_data = {"trace": gps_trace}
+                    
                     if headers["path"] == "/getMapFromTrace":
+                        print("[server]: gps trace recieved")
                         trace_request_data += event.data
                         # print(trace_request_data)
                         try:
@@ -95,14 +94,19 @@ class HTTPServer:
                             gps_trace = data
                             response_data = self.get_map(gps_trace[0])
 
+                            # send the response to first GPS point in the trace
+                            self.send_successfull_response(conn, event, response_data)
+
+                            # send push for all the points in the trace except first
                             for idx, gps in enumerate(gps_trace):
                                 if idx!= 0:
                                     response = self.get_map(gps)
-                                    print("GPS")
-                                    print(gps)
+                                    print("[server]: pushing map for point : ", gps)
                                     self.send_push(conn, event, gps, json.dumps(response).encode('utf-8'))
+                                    print("[server]: pushed map for point : ", gps)
 
-                            self.send_successfull_response(conn, event, response_data)
+                            conn.end_stream(event.stream_id)
+
                         except json.decoder.JSONDecodeError:
                             pass
 
@@ -129,6 +133,7 @@ class HTTPServer:
 
                             # send a response indicating a succesfull request, along with the data
                             self.send_successfull_response(conn, event, response_data)
+                            conn.end_stream(event.stream_id)
 
                         # if not full dict, keep getting data
                         except json.decoder.JSONDecodeError:
@@ -192,7 +197,7 @@ class HTTPServer:
                 ("content-type", "application/json"),
             ],
         )
-        conn.send_data(stream_id=stream_id, data=data, end_stream=True)
+        conn.send_data(stream_id=stream_id, data=data, end_stream=False)
 
     def send_error_response(self, conn, event, response_data):
         stream_id = event.stream_id

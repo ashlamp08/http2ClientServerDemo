@@ -60,6 +60,10 @@ class HTTPClient:
 
         body = b""
         response_stream_ended = False
+        active_streams = set()
+        push_streams = set()
+        received_data = {}
+        push_path = {}
         while not response_stream_ended:
             # read raw data from the self.socket
             data = self.socket.recv(65536 * 1024)
@@ -70,21 +74,46 @@ class HTTPClient:
             events = self.connection.receive_data(data)
             for event in events:
                 if isinstance(event, h2.events.DataReceived):
+                    active_streams.add(event.stream_id)
                     # update flow control so the server doesn't starve us
+                    if event.stream_id in received_data:
+                        received_data[event.stream_id] += event.data
+                    else:
+                        received_data[event.stream_id] = b""
+                        received_data[event.stream_id] += event.data
+
                     self.connection.acknowledge_received_data(
                         event.flow_controlled_length, event.stream_id
                     )
-                    # more response body data received
-                    body += event.data
+                if isinstance(event, h2.events.PushedStreamReceived):
+                    active_streams.add(event.pushed_stream_id)
+                    push_streams.add(event.pushed_stream_id)
+                    active_streams.add(event.parent_stream_id)
+                    for _t in event.headers:
+                        if _t[0] == ":path":
+                            push_path[event.pushed_stream_id] = _t[1]
+                    # update flow control so the server doesn't starve us
                 if isinstance(event, h2.events.StreamEnded):
+                    active_streams.remove(event.stream_id)
                     # response body completed, let's exit the loop
-                    response_stream_ended = True
-                    break
+                    if len(active_streams) == 0:
+                        response_stream_ended = True
+                        break
 
             # send any pending data to the server
             self.socket.sendall(self.connection.data_to_send())
 
-        return body.decode()
+        ## Separate push and non push
+
+        push_part = {}
+
+        for stream_id, resp_body in received_data.items():
+            if stream_id not in push_streams:
+                body = resp_body
+            else:
+                push_part[push_path[stream_id]] = resp_body.decode()
+
+        return body.decode(), push_part
 
     def get_next_push(self):
         pass

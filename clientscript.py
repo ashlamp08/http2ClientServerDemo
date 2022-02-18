@@ -1,5 +1,7 @@
 from http_client import HTTPClient
 import json
+import time
+import metadata
 
 
 def second(client):
@@ -58,22 +60,32 @@ def third(client):
 
     headers = [
         (":method", "GET"),
-        (":path", "/getMaps"),
+        (":path", "/getMapFromTrace"),
         (":authority", "localhost"),
         (":scheme", "https"),
     ]
     request_body = [
-        [60.1827219, 24.832274299999998],
-        [60.182534700000005, 24.8326882],
-        [60.182384400000004, 24.8329588],
-        [60.1821692, 24.833253900000003],
-        [60.18202589999999, 24.833446],
-        [60.1819362, 24.833533799999998],
-        [60.1819362, 24.833533799999998],
-    ]
+		[60.18314587645695, 24.831518950092683],
+		[60.183115400000005, 24.831577100000004],
+		[60.18296499999999, 24.831824800000003],
+		[60.1827219, 24.832274299999998],
+		[60.170473699999995, 24.944638299999998],
+		[60.170562999999994, 24.944929199999997]]
 
-    response = client.send_request(headers, json.dumps(request_body).encode("utf-8"))
+    response, push = client.send_request(headers, json.dumps(request_body).encode("utf-8"))
+
     print(response)
+
+    # print(push)
+    
+    for i, gps in enumerate(request_body):
+        if i == 0:
+            continue
+        time.sleep(3)
+        path = str("/getMap?lat=" + str(gps[0]) + "&lon=" + str(gps[1]))
+        print(push[path])
+
+
 
 
 def fourth(client):
@@ -121,3 +133,4 @@ def fourth(client):
 
 client = HTTPClient("localhost", 8000)
 fourth(client)
+
