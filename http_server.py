@@ -33,6 +33,25 @@ class HTTPServer:
         conn.initiate_connection()
         sock.sendall(conn.data_to_send())
 
+        def wait_for_window_update():
+
+            body = b""
+            window_updated = False
+            while not window_updated:
+                # read raw data from the self.socket
+                data = sock.recv(65536 * 1024)
+                if not data:
+                    break
+
+                # feed raw data into h2, and process resulting events
+                events = conn.receive_data(data)
+                for event in events:
+                    if isinstance(event, h2.events.WindowUpdated):
+                        window_updated = True
+
+                # send any pending data to the server
+                sock.sendall(conn.data_to_send())
+
         headers = {}
         request_data = b""
         trace_request_data = b""
@@ -104,6 +123,19 @@ class HTTPServer:
                                 if idx != 0:
                                     response = self.get_map(gps)
                                     print("[server]: pushing map for point : ", gps)
+                                    # check that flow control window not closing
+                                    if conn.local_flow_control_window(
+                                        event.stream_id
+                                    ) < sys.getsizeof(
+                                        json.dumps(response).encode("utf-8")
+                                    ):
+                                        # send queued data and wait
+                                        data_to_send = conn.data_to_send()
+                                        if data_to_send:
+                                            sock.sendall(data_to_send)
+                                        # wait for window update
+                                        print("[server]: waiting for window update")
+                                        wait_for_window_update()
                                     self.send_push(
                                         conn,
                                         event,
