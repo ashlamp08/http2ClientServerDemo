@@ -64,14 +64,7 @@ def third(client):
         (":authority", "localhost"),
         (":scheme", "https"),
     ]
-    request_body = [
-        [60.18314587645695, 24.831518950092683],
-        [60.183115400000005, 24.831577100000004],
-        [60.18296499999999, 24.831824800000003],
-        [60.1827219, 24.832274299999998],
-        [60.170473699999995, 24.944638299999998],
-        [60.170562999999994, 24.944929199999997],
-    ]
+    request_body = metadata.availableGPSpoints
 
     response, push = client.send_request(
         headers, json.dumps(request_body).encode("utf-8")
@@ -135,7 +128,8 @@ def fourth(client):
 client = HTTPClient("localhost", 8000)
 input("2:")
 second(client)
-input("3:")
-third(client)
 input("4:")
 fourth(client)
+
+input("3:")
+third(client)
