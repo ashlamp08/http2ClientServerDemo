@@ -25,7 +25,7 @@ def second(client):
     response = client.send_request(headers, json.dumps(request_body).encode("utf-8"))
     print(response)
 
-    input()
+    input("2: (invalid gps)")
 
     """
     2)
@@ -65,27 +65,28 @@ def third(client):
         (":scheme", "https"),
     ]
     request_body = [
-		[60.18314587645695, 24.831518950092683],
-		[60.183115400000005, 24.831577100000004],
-		[60.18296499999999, 24.831824800000003],
-		[60.1827219, 24.832274299999998],
-		[60.170473699999995, 24.944638299999998],
-		[60.170562999999994, 24.944929199999997]]
+        [60.18314587645695, 24.831518950092683],
+        [60.183115400000005, 24.831577100000004],
+        [60.18296499999999, 24.831824800000003],
+        [60.1827219, 24.832274299999998],
+        [60.170473699999995, 24.944638299999998],
+        [60.170562999999994, 24.944929199999997],
+    ]
 
-    response, push = client.send_request(headers, json.dumps(request_body).encode("utf-8"))
+    response, push = client.send_request(
+        headers, json.dumps(request_body).encode("utf-8")
+    )
 
     print(response)
 
     # print(push)
-    
+
     for i, gps in enumerate(request_body):
         if i == 0:
             continue
         time.sleep(3)
         path = str("/getMap?lat=" + str(gps[0]) + "&lon=" + str(gps[1]))
         print(push[path])
-
-
 
 
 def fourth(client):
@@ -113,7 +114,7 @@ def fourth(client):
     response = client.send_request(headers, json.dumps(request_body).encode("utf-8"))
     print(response)
 
-    input()
+    input("4) Put:")
     # PUT
     headers = [
         (":method", "PUT"),
@@ -122,7 +123,7 @@ def fourth(client):
         (":scheme", "https"),
     ]
 
-    with open("example_photo.jpg", "rb") as image:
+    with open("example_photo_2.jpg", "rb") as image:
         f = image.read()
         photo = str(bytearray(f))
 
@@ -132,5 +133,9 @@ def fourth(client):
 
 
 client = HTTPClient("localhost", 8000)
+input("2:")
+second(client)
+input("3:")
+third(client)
+input("4:")
 fourth(client)
-
